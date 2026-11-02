@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>NYSC 뽑기 게임</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0f172a; font-family: 'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif; }
+  /* 1920x1080 모니터에서 크롬 상단 탭/주소창/북마크바(약 140px)를 뺀 영역 = 1920x920 기준 */
+  #stage { position: absolute; left: 50%; top: 0; width: 1920px; height: 920px; transform-origin: top center; background: radial-gradient(circle at 50% 30%, #1e293b, #0b1120); color: #f1f5f9; overflow: hidden; }
+  .screen { position: absolute; inset: 0; display: none; }
+  .screen.active { display: block; }
+
+  /* ---------- 첫 화면 ---------- */
+  #setup h1 { text-align: center; font-size: 56px; margin-top: 40px; letter-spacing: 2px; }
+  #setup .sub { text-align: center; color: #94a3b8; font-size: 24px; margin-top: 8px; }
+  .setup-wrap { display: flex; gap: 60px; justify-content: center; margin-top: 36px; padding: 0 80px; }
+  .panel { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 24px; padding: 32px 40px; }
+  .panel h2 { font-size: 30px; margin-bottom: 20px; }
+  .panel h2 small { font-size: 20px; color: #94a3b8; font-weight: normal; margin-left: 10px; }
+  #teamPanel { width: 840px; }
+  #teamGrid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px 20px; }
+  .team-row { display: flex; align-items: center; gap: 12px; }
+  .team-row .no { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; color: #0f172a; flex: none; }
+  .team-row { min-width: 0; }
+  .team-row input { flex: 1; min-width: 0; width: 100%; height: 62px; font-size: 26px; padding: 0 18px; border-radius: 14px; border: 2px solid #334155; background: #0f172a; color: #fff; outline: none; }
+  .team-row input:focus { border-color: #38bdf8; }
+  .team-row input.dup { border-color: #ef4444; background: #3b1218; }
+  #teamCount { margin-top: 22px; font-size: 26px; color: #38bdf8; text-align: right; }
+  #typePanel { width: 760px; }
+  .types { display: flex; flex-direction: column; gap: 18px; }
+  .type { display: flex; align-items: center; gap: 24px; padding: 22px 26px; border-radius: 18px; border: 3px solid #334155; background: #0f172a; cursor: pointer; transition: .15s; }
+  .type:hover { border-color: #64748b; }
+  .type.sel { border-color: #facc15; background: #1e293b; box-shadow: 0 0 24px rgba(250,204,21,.25); }
+  .type .ic { font-size: 56px; width: 80px; text-align: center; }
+  .type .tt { font-size: 32px; font-weight: bold; }
+  .type .ds { font-size: 20px; color: #94a3b8; margin-top: 4px; }
+  .type.disabled { opacity: .45; cursor: not-allowed; }
+  .type .badge { margin-left: auto; font-size: 18px; background: #475569; padding: 4px 12px; border-radius: 999px; }
+  #goBtn { display: block; margin: 30px auto 0; width: 520px; height: 90px; font-size: 38px; font-weight: bold; border: 0; border-radius: 22px; cursor: pointer; background: linear-gradient(135deg,#f59e0b,#ef4444); color: #fff; box-shadow: 0 8px 24px rgba(239,68,68,.4); }
+  #goBtn:disabled { background: #334155; color: #64748b; box-shadow: none; cursor: not-allowed; }
+  #err { text-align: center; height: 28px; margin-top: 10px; color: #fca5a5; font-size: 22px; }
+
+  /* ---------- 룰렛 화면 ---------- */
+  #roulette h2.title { text-align: center; font-size: 44px; margin-top: 24px; }
+  #roulette .remain { text-align: center; color: #94a3b8; font-size: 24px; margin-top: 4px; }
+  #wheelArea { position: absolute; left: 330px; top: 130px; width: 760px; height: 780px; }
+  #pointer { position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 0; height: 0; border-left: 30px solid transparent; border-right: 30px solid transparent; border-top: 70px solid #facc15; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); z-index: 3; }
+  #wheel { position: absolute; left: 30px; top: 50px; width: 700px; height: 700px; }
+  #side { position: absolute; left: 1180px; top: 330px; width: 420px; }
+  #spinBtn { width: 380px; height: 130px; font-size: 56px; font-weight: bold; border: 0; border-radius: 28px; cursor: pointer; color: #fff; background: linear-gradient(135deg,#22c55e,#16a34a); box-shadow: 0 10px 30px rgba(34,197,94,.4); }
+  #spinBtn.stop { background: linear-gradient(135deg,#ef4444,#b91c1c); box-shadow: 0 10px 30px rgba(239,68,68,.4); }
+  #spinBtn:disabled { background: #334155; box-shadow: none; cursor: not-allowed; color: #64748b; }
+  #quitBtn { margin-top: 24px; width: 380px; height: 70px; font-size: 28px; border-radius: 18px; border: 2px solid #475569; background: transparent; color: #cbd5e1; cursor: pointer; }
+  #quitBtn:hover { background: rgba(255,255,255,.08); }
+  #history { margin-top: 30px; font-size: 24px; color: #cbd5e1; line-height: 1.7; max-height: 280px; overflow: hidden; }
+  #history b { color: #facc15; }
+
+  /* 팝업 */
+  #popup { position: absolute; inset: 0; background: rgba(2,6,23,.8); display: none; align-items: center; justify-content: center; z-index: 10; }
+  #popup.show { display: flex; }
+  #popBox { background: linear-gradient(160deg,#1e293b,#0f172a); border: 3px solid #facc15; border-radius: 36px; padding: 60px 110px 50px; text-align: center; min-width: 900px; box-shadow: 0 0 80px rgba(250,204,21,.35); animation: pop .4s ease-out; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  #popBox .lb { font-size: 32px; color: #facc15; }
+  #popBox .nm { font-size: 150px; font-weight: 900; margin: 20px 0 40px; line-height: 1.15; word-break: keep-all; }
+  #popBox .btns { display: flex; gap: 30px; justify-content: center; }
+  #popBox button { height: 90px; width: 320px; font-size: 36px; font-weight: bold; border: 0; border-radius: 22px; cursor: pointer; color: #fff; }
+  #contBtn { background: linear-gradient(135deg,#3b82f6,#6366f1); }
+  #endBtn { background: linear-gradient(135deg,#64748b,#475569); }
+  #contBtn:disabled { opacity: .3; cursor: not-allowed; }
+
+  #fx { position: absolute; left: 0; top: 0; width: 1920px; height: 920px; pointer-events: none; z-index: 12; }
+
+  /* ---------- 사다리 타기 ---------- */
+  #ladder .lback { position: absolute; left: 40px; top: 28px; height: 56px; padding: 0 26px; font-size: 24px; border-radius: 14px; border: 2px solid #475569; background: transparent; color: #cbd5e1; cursor: pointer; }
+  #ladder .lback:hover { background: rgba(255,255,255,.08); }
+  #ladder h2.ltitle { text-align: center; font-size: 44px; margin-top: 24px; }
+  #lHint { text-align: center; font-size: 26px; color: #facc15; margin-top: 8px; height: 36px; }
+  #lArea { position: absolute; left: 260px; top: 130px; width: 1400px; height: 700px; }
+  #lTeams, #lPicks { position: absolute; left: 0; width: 1400px; }
+  #lTeams { top: 0; height: 112px; }
+  #lPicks { top: 656px; height: 70px; }
+  #lCanvas { position: absolute; left: 0; top: 112px; width: 1400px; height: 540px; }
+  .lteam .em { font-size: 32px; line-height: 1.1; text-shadow: none; }
+  .lteam { position: absolute; top: 0; height: 106px; border: 0; border-radius: 16px; color: #fff; font-weight: bold; line-height: 1.15; word-break: break-all; padding: 4px 6px; cursor: pointer; text-shadow: 0 1px 4px rgba(0,0,0,.5); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .lteam .tag { font-size: 16px; margin-top: 1px; }
+  .lteam:disabled { color: #fff; cursor: default; }
+  .lteam.done { cursor: default; }
+  .lteam.win { outline: 5px solid #facc15; filter: none; }
+  .lteam.lose { filter: grayscale(.8) brightness(.55); }
+  .lpick { position: absolute; top: 6px; height: 60px; border: 0; border-radius: 14px; font-size: 24px; font-weight: bold; background: #334155; color: #e2e8f0; cursor: pointer; }
+  .lpick:hover:not(:disabled) { background: #475569; }
+  .lpick.win { background: linear-gradient(135deg,#facc15,#f59e0b); color: #1e1b0b; }
+  .lpick.lose { background: #1e293b; color: #64748b; }
+  .lpick:disabled { cursor: default; }
+  #lCover { position: absolute; left: 0; top: 258px; width: 1400px; height: 248px; z-index: 2; border-radius: 20px; border: 3px dashed #64748b; background: repeating-linear-gradient(45deg,#1e293b,#1e293b 18px,#172033 18px,#172033 36px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; transition: opacity .6s; box-shadow: 0 0 40px rgba(0,0,0,.6); }
+  #lCover.lift { opacity: 0; pointer-events: none; }
+  #lCoverMsg { font-size: 30px; color: #cbd5e1; }
+  #lCoverMsg.warn { color: #fca5a5; animation: shake .4s; }
+  @keyframes shake { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+  #lCover .cbtns { display: flex; gap: 28px; }
+  #lCover button { height: 84px; font-size: 34px; font-weight: bold; border: 0; border-radius: 20px; color: #fff; cursor: pointer; padding: 0 44px; }
+  #lStart { background: linear-gradient(135deg,#22c55e,#16a34a); }
+  #lAll { background: linear-gradient(135deg,#3b82f6,#6366f1); }
+  #lCover button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+  #lpopup { position: absolute; inset: 0; background: rgba(2,6,23,.8); display: none; align-items: center; justify-content: center; z-index: 10; }
+  #lpopup.show { display: flex; }
+  #lpopBox { background: linear-gradient(160deg,#1e293b,#0f172a); border: 3px solid #facc15; border-radius: 36px; padding: 60px 110px 50px; text-align: center; min-width: 900px; box-shadow: 0 0 80px rgba(250,204,21,.35); animation: pop .4s ease-out; }
+  #lpopBox .lb { font-size: 32px; color: #facc15; }
+  #lpopBox .nm { font-size: 150px; font-weight: 900; margin: 20px 0 20px; line-height: 1.15; word-break: keep-all; }
+  #lpopBox .rs { font-size: 48px; font-weight: bold; margin-bottom: 36px; }
+  #lpopBox .btns { display: flex; gap: 30px; justify-content: center; }
+  #lpopBox button { height: 90px; width: 320px; font-size: 36px; font-weight: bold; border: 0; border-radius: 22px; cursor: pointer; color: #fff; }
+  #lOk { background: linear-gradient(135deg,#3b82f6,#6366f1); }
+  #lAgain { background: linear-gradient(135deg,#3b82f6,#6366f1); }
+  #lEnd { background: linear-gradient(135deg,#64748b,#475569); }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 첫 화면 -->
+  <section id="setup" class="screen active">
+    <h1>NYSC 뽑기 게임</h1>
+    <div class="sub">팀 이름을 입력하고 뽑기 방식을 선택하세요</div>
+    <div class="setup-wrap">
+      <div class="panel" id="teamPanel">
+        <h2>① 팀 이름 입력 <small>최대 10개</small></h2>
+        <div id="teamGrid"></div>
+        <div id="teamCount">입력된 팀: 0개</div>
+      </div>
+      <div class="panel" id="typePanel">
+        <h2>② 룰렛 종류 선택</h2>
+        <div class="types">
+          <div class="type sel" data-type="wheel"><div class="ic">🎡</div><div><div class="tt">원형 룰렛</div><div class="ds">돌아가는 원판에서 팀 선택</div></div></div>
+          <div class="type" data-type="ladder"><div class="ic">🪜</div><div><div class="tt">사다리 타기</div><div class="ds">사다리를 타고 내려가서 선택</div></div></div>
+          <div class="type" data-type="dart"><div class="ic">🎯</div><div><div class="tt">다트</div><div class="ds">로켓이 날아가 원판에 꽂히는 팀 선택</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div id="err"></div>
+    <button id="goBtn" disabled>뽑기 시작하기</button>
+  </section>
+
+  <!-- 원형 룰렛 화면 -->
+  <section id="roulette" class="screen">
+    <h2 class="title" id="rTitle">🎡 원형 룰렛</h2>
+    <div class="remain" id="remain"></div>
+    <div id="wheelArea">
+      <div id="pointer"></div>
+      <canvas id="wheel" width="1400" height="1400"></canvas>
+    </div>
+    <div id="side">
+      <button id="spinBtn">시작</button><br>
+      <button id="quitBtn">처음으로</button>
+      <div id="history"></div>
+    </div>
+  </section>
+
+  <!-- 사다리 타기 화면 -->
+  <section id="ladder" class="screen">
+    <button class="lback" id="lBack">← 처음으로</button>
+    <h2 class="ltitle">🪜 사다리 타기</h2>
+    <div id="lHint"></div>
+    <div id="lArea">
+      <div id="lTeams"></div>
+      <canvas id="lCanvas"></canvas>
+      <div id="lCover">
+        <div id="lCoverMsg">사다리의 일부가 가려져 있습니다</div>
+        <div class="cbtns">
+          <button id="lStart">시작</button>
+          <button id="lAll">한 번에 확인하기</button>
+        </div>
+      </div>
+      <div id="lPicks"></div>
+    </div>
+  </section>
+
+  <!-- 사다리 결과 팝업 -->
+  <div id="lpopup">
+    <div id="lpopBox">
+      <div class="lb" id="lpLabel"></div>
+      <div class="nm" id="lpName"></div>
+      <div class="rs" id="lpResult"></div>
+      <div class="btns">
+        <button id="lOk">확인</button>
+        <button id="lAgain">다시하기</button>
+        <button id="lEnd">끝내기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 다트 효과(로켓/폭죽) 레이어 -->
+  <canvas id="fx"></canvas>
+
+  <!-- 당첨 팝업 -->
+  <div id="popup">
+    <div id="popBox">
+      <div class="lb">🎉 당첨 🎉</div>
+      <div class="nm" id="popName"></div>
+      <div class="btns">
+        <button id="contBtn">이어서 뽑기</button>
+        <button id="endBtn">끝내기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- 화면 크기 맞춤 (1920x920 기준) ---------- */
+const stage = document.getElementById('stage');
+function fit() {
+  const s = Math.min(window.innerWidth / 1920, window.innerHeight / 920);
+  stage.style.transform = `translateX(-50%) scale(${s})`;
+}
+window.addEventListener('resize', fit); fit();
+
+const COLORS = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#6366f1','#a855f7','#ec4899','#84cc16'];
+const EMOJIS = ['☀️','🌍','🌙','⭐','✈️','🚀','🪐','☄️','🛸','🛰️'];
+const $ = id => document.getElementById(id);
+
+/* ---------- 첫 화면 ---------- */
+const grid = $('teamGrid');
+for (let i = 0; i < 10; i++) {
+  const row = document.createElement('div');
+  row.className = 'team-row';
+  row.innerHTML = `<div class="no" style="background:${COLORS[i]}">${i+1}</div><input type="text" maxlength="10" placeholder="팀 ${i+1}" autocomplete="off">`;
+  grid.appendChild(row);
+}
+const inputs = [...grid.querySelectorAll('input')];
+let selType = 'wheel';
+
+function getTeams() { return inputs.map(i => i.value.trim()).filter(v => v); }
+function refresh() {
+  const n = getTeams().length;
+  // 중복 이름 검사 (공백 제거, 대소문자 무시)
+  const key = v => v.trim().toLowerCase();
+  const counts = {};
+  inputs.forEach(i => { const k = key(i.value); if (k) counts[k] = (counts[k] || 0) + 1; });
+  let dup = false;
+  inputs.forEach(i => {
+    const k = key(i.value);
+    const isDup = !!k && counts[k] > 1;
+    i.classList.toggle('dup', isDup);
+    if (isDup) dup = true;
+  });
+  $('teamCount').textContent = `입력된 팀: ${n}개`;
+  $('goBtn').disabled = n < 2 || dup;
+  $('err').textContent = dup ? '같은 팀 이름이 있습니다. 새롭게 입력해주세요.' : (n < 2 ? '팀을 2개 이상 입력해 주세요.' : '');
+}
+inputs.forEach((inp, i) => {
+  inp.addEventListener('input', refresh);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { (inputs[i+1] || $('goBtn')).focus(); } });
+});
+document.querySelectorAll('.type').forEach(el => el.addEventListener('click', () => {
+  if (el.classList.contains('disabled')) return;
+  document.querySelectorAll('.type').forEach(t => t.classList.remove('sel'));
+  el.classList.add('sel'); selType = el.dataset.type;
+}));
+$('goBtn').addEventListener('click', () => {
+  const names = getTeams();
+  if (names.length < 2 || document.querySelector('.team-row input.dup')) return;
+  if (selType === 'wheel') startWheel(names);
+  else if (selType === 'ladder') startLadder(names);
+  else if (selType === 'dart') startWheel(names, 'dart');
+});
+refresh(); inputs[0].focus();
+
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); }
+
+/* ---------- 원형 룰렛 ---------- */
+const cv = $('wheel'), ctx = cv.getContext('2d');
+let teams = [];      // [{name,color}]
+let rot = 0;         // 현재 각도(rad)
+let speed = 0;       // rad/s
+let state = 'idle';  // idle | accel | cruise | decel | done
+let last = 0, raf = null, winners = [];
+const CRUISE = 18;    // 일정 속도 rad/s
+
+let mode = 'wheel';  // wheel | dart
+function startWheel(names, m = 'wheel') {
+  mode = m; clearFx();
+  $('rTitle').textContent = m === 'dart' ? '🎯 다트' : '🎡 원형 룰렛';
+  $('pointer').style.display = m === 'dart' ? 'none' : '';
+  teams = names.map((n, i) => ({ name: n, color: COLORS[i % COLORS.length] }));
+  winners = []; rot = Math.random() * Math.PI * 2; speed = 0; state = 'idle';
+  $('history').innerHTML = '';
+  show('roulette'); resetUI(); draw();
+}
+function resetUI() {
+  $('spinBtn').textContent = '시작'; $('spinBtn').className = ''; $('spinBtn').disabled = false;
+  $('remain').textContent = `남은 팀 ${teams.length}개`;
+}
+function draw() {
+  const W = cv.width, R = W / 2 - 12, c = W / 2, n = teams.length, seg = Math.PI * 2 / n;
+  ctx.clearRect(0, 0, W, W);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(c, c, R + 10, 0, Math.PI * 2); ctx.fillStyle = '#facc15'; ctx.fill();
+  for (let i = 0; i < n; i++) {
+    const a0 = rot + i * seg, a1 = a0 + seg;
+    ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, R, a0, a1); ctx.closePath();
+    ctx.fillStyle = teams[i].color; ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.stroke();
+    // 이름
+    ctx.save();
+    ctx.translate(c, c); ctx.rotate(a0 + seg / 2);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 8;
+    const fs = n <= 4 ? 96 : n <= 7 ? 80 : 66;
+    ctx.font = `bold ${fs}px "Malgun Gothic","Apple SD Gothic Neo",sans-serif`;
+    ctx.fillText(teams[i].name, R - 50, 0, R - 190);
+    ctx.restore();
+  }
+  // 다트판 링
+  if (mode === 'dart') {
+    ctx.save(); ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,.4)';
+    [0.3, 0.62, 0.9].forEach(f => { ctx.beginPath(); ctx.arc(c, c, R * f, 0, Math.PI * 2); ctx.stroke(); });
+    ctx.restore();
+  }
+  // 중앙 허브
+  ctx.beginPath(); ctx.arc(c, c, 70, 0, Math.PI * 2); ctx.fillStyle = '#0f172a'; ctx.fill();
+  ctx.lineWidth = 10; ctx.strokeStyle = '#facc15'; ctx.stroke();
+  ctx.restore();
+}
+function currentIndex() {
+  const n = teams.length, seg = Math.PI * 2 / n, TAU = Math.PI * 2;
+  let a = (-Math.PI / 2 - rot) % TAU; if (a < 0) a += TAU;
+  return Math.min(n - 1, Math.floor(a / seg));
+}
+function tick(t) {
+  const dt = Math.min(0.05, (t - last) / 1000); last = t;
+  if (state === 'accel') {
+    speed += CRUISE * dt / 1.8;                // 약 1.8초에 걸쳐 서서히 가속
+    if (speed >= CRUISE) { speed = CRUISE; state = 'cruise'; if (mode === 'dart') launchRocket(); }
+  } else if (state === 'decel') {
+    speed *= Math.exp(-1.15 * dt);             // 서서히 감속
+    if (speed < 0.03) { speed = 0; state = 'done'; rot += 0; draw(); if (mode === 'dart') dartDone(); else finish(); return; }
+  }
+  rot += speed * dt;
+  draw();
+  raf = requestAnimationFrame(tick);
+}
+$('spinBtn').addEventListener('click', () => {
+  if (state === 'idle') {
+    state = 'accel'; last = performance.now();
+    if (mode === 'dart') { $('spinBtn').textContent = '회전 중'; $('spinBtn').disabled = true; }
+    else { $('spinBtn').textContent = '정지'; $('spinBtn').className = 'stop'; }
+    raf = requestAnimationFrame(tick);
+  } else if (state === 'accel' || state === 'cruise') {
+    state = 'decel'; $('spinBtn').disabled = true;
+  }
+});
+function finish(idx) {
+  const w = teams[idx === undefined ? currentIndex() : idx];
+  $('popName').textContent = w.name;
+  $('popName').style.color = w.color;
+  $('contBtn').disabled = teams.length <= 2;   // 남은 팀이 1개가 되면 더 뽑을 수 없음
+  $('contBtn').title = teams.length <= 2 ? '남은 팀이 1개뿐입니다' : '';
+  $('popup').classList.add('show');
+  winners.push(w.name);
+  $('history').innerHTML = winners.map((n, i) => `${i+1}번째 당첨: <b>${n}</b>`).join('<br>');
+}
+$('contBtn').addEventListener('click', () => {
+  clearFx();
+  const w = winners[winners.length - 1];
+  teams.splice(teams.findIndex(t => t.name === w), 1);   // 당첨 팀 제외 후 원판 재구성
+  $('popup').classList.remove('show');
+  state = 'idle'; speed = 0; rot = Math.random() * Math.PI * 2;
+  resetUI(); draw();
+});
+function backToSetup() {
+  cancelAnimationFrame(raf); state = 'idle'; speed = 0; clearFx();
+  $('popup').classList.remove('show');
+  inputs.forEach(i => i.value = ''); refresh();
+  show('setup'); inputs[0].focus();
+}
+$('endBtn').addEventListener('click', backToSetup);
+$('quitBtn').addEventListener('click', backToSetup);
+
+/* ---------- 다트: 로켓 + 폭죽 ---------- */
+const fx = $('fx'), fctx = fx.getContext('2d');
+fx.width = 3840; fx.height = 1840;
+const FX = { rocket: null, stuck: null, ring: 0, parts: [], timers: [], raf: null, last: 0, until: Infinity };
+const WHEEL_C = { x: 710, y: 530, R: 344 };   // 화면(1920x920) 기준 원판 중심/반지름
+const TAU = Math.PI * 2;
+
+function clearFx() {
+  cancelAnimationFrame(FX.raf); FX.raf = null;
+  FX.timers.forEach(clearTimeout); FX.timers = [];
+  FX.rocket = FX.stuck = null; FX.parts = []; FX.ring = 0; FX.until = Infinity;
+  fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.clearRect(0, 0, fx.width, fx.height);
+}
+function startFxLoop() {
+  FX.last = performance.now();
+  cancelAnimationFrame(FX.raf);
+  FX.raf = requestAnimationFrame(fxTick);
+}
+// 원판이 일정 속도에 도달하면 호출: 화면의 랜덤 위치에서 로켓 발사
+function launchRocket() {
+  let sx, sy;
+  do { sx = Math.random() * 1920; sy = Math.random() * 920; }
+  while (Math.hypot(sx - WHEEL_C.x, sy - WHEEL_C.y) < 480);
+  const th = Math.random() * TAU, r = WHEEL_C.R * (0.3 + Math.random() * 0.6);
+  const tx = WHEEL_C.x + Math.cos(th) * r, ty = WHEEL_C.y + Math.sin(th) * r;
+  FX.rocket = { sx, sy, tx, ty, ang: Math.atan2(ty - sy, tx - sx), t: -0.2, dur: 1.3 };
+  FX.stuck = null; FX.until = Infinity;
+  startFxLoop();
+}
+function burst(x, y) {
+  const hue = Math.random() * 360;
+  for (let i = 0; i < 80; i++) {
+    const ang = Math.random() * TAU, sp = 120 + Math.random() * 380;
+    FX.parts.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 1.1 + Math.random() * .7, max: 1.8,
+      color: `hsl(${(hue + Math.random() * 60) % 360},100%,${55 + Math.random() * 20}%)`, size: 3 + Math.random() * 3 });
+  }
+}
+function stuckTip(S) {   // 꽂힌 로켓 끝의 화면 좌표 (원판과 함께 회전)
+  const a = S.rel + rot;
+  return { x: WHEEL_C.x + Math.cos(a) * S.r, y: WHEEL_C.y + Math.sin(a) * S.r };
+}
+function rocketHit(R) {
+  const n = teams.length, seg = TAU / n;
+  const th = Math.atan2(R.ty - WHEEL_C.y, R.tx - WHEEL_C.x), r = Math.hypot(R.tx - WHEEL_C.x, R.ty - WHEEL_C.y);
+  // 원판 기준 각도 (원판이 돌고 있으므로 현재 회전각을 뺀다) - 칸 경계에 너무 가까우면 살짝 보정
+  let a = ((th - rot) % TAU + TAU) % TAU, frac = (a / seg) % 1;
+  if (frac < 0.1) a += (0.1 - frac) * seg; else if (frac > 0.9) a -= (frac - 0.9) * seg;
+  a = (a + TAU) % TAU;
+  const idx = Math.min(n - 1, Math.floor(a / seg));
+  FX.stuck = { rel: a, r, ang0: R.ang, rotHit: rot, idx };
+  FX.rocket = null; FX.ring = 0.001; FX.until = Infinity;
+  const tip = stuckTip(FX.stuck);
+  burst(tip.x, tip.y);
+  for (let i = 1; i <= 5; i++) FX.timers.push(setTimeout(() => burst(250 + Math.random() * 1400, 80 + Math.random() * 480), i * 280));
+  state = 'decel';   // 로켓이 꽂히면 원판이 서서히 멈춘다
+}
+function fxTick(ts) {
+  const dt = Math.min(0.05, (ts - FX.last) / 1000); FX.last = ts;
+  const R = FX.rocket;
+  if (R && !FX.stuck) {
+    R.t += dt / R.dur;
+    if (R.t >= 1) rocketHit(R);
+    else if (R.t > 0) {
+      const p = Math.pow(R.t, 1.7), x = R.sx + (R.tx - R.sx) * p, y = R.sy + (R.ty - R.sy) * p;
+      R.x = x; R.y = y;
+      for (let i = 0; i < 3; i++) FX.parts.push({ x: x - Math.cos(R.ang) * 30 + (Math.random() - .5) * 10, y: y - Math.sin(R.ang) * 30 + (Math.random() - .5) * 10,
+        vx: -Math.cos(R.ang) * 60 + (Math.random() - .5) * 60, vy: -Math.sin(R.ang) * 60 + (Math.random() - .5) * 60,
+        life: .45, max: .45, color: Math.random() < .5 ? '#fb923c' : '#fde047', size: 5 + Math.random() * 5, flame: true });
+    }
+  }
+  if (FX.ring) { FX.ring += dt * 1.6; if (FX.ring > 1) FX.ring = 0; }
+  for (const p of FX.parts) {
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (!p.flame) { p.vy += 260 * dt; p.vx *= 0.985; }
+    p.life -= dt;
+  }
+  FX.parts = FX.parts.filter(p => p.life > 0);
+  fxDraw();
+  if (ts < FX.until) FX.raf = requestAnimationFrame(fxTick);
+  else { FX.parts = []; FX.ring = 0; FX.stuck = null; fxDraw(); FX.raf = null; }
+}
+// 원판이 완전히 멈췄을 때: 잠시 뒤 당첨 팝업 + 마무리 폭죽
+function dartDone() {
+  const idx = FX.stuck ? FX.stuck.idx : currentIndex();
+  FX.timers.push(setTimeout(() => {
+    FX.stuck = null; FX.ring = 0;
+    finish(idx);
+    FX.until = performance.now() + 2600;
+    if (!FX.raf) startFxLoop();
+    for (let i = 0; i < 6; i++) FX.timers.push(setTimeout(() => burst(250 + Math.random() * 1400, 80 + Math.random() * 480), i * 250));
+  }, 800));
+}
+function drawRocket(x, y, ang, size) {
+  fctx.save(); fctx.translate(x, y); fctx.rotate(ang + Math.PI / 4);
+  fctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  fctx.textAlign = 'center'; fctx.textBaseline = 'middle'; fctx.fillText('🚀', 0, 0);
+  fctx.restore();
+}
+function fxDraw() {
+  fctx.setTransform(2, 0, 0, 2, 0, 0); fctx.clearRect(0, 0, 1920, 920);
+  const S = FX.stuck;
+  if (S) {
+    const tip = stuckTip(S), ang = S.ang0 + (rot - S.rotHit);
+    if (FX.ring) {
+      fctx.save(); fctx.globalAlpha = 1 - FX.ring; fctx.strokeStyle = '#fde047'; fctx.lineWidth = 8;
+      fctx.beginPath(); fctx.arc(tip.x, tip.y, 20 + FX.ring * 110, 0, TAU); fctx.stroke(); fctx.restore();
+    }
+    drawRocket(tip.x - Math.cos(ang) * 30, tip.y - Math.sin(ang) * 30, ang, 84);   // 꽂힌 로켓(원판과 함께 회전)
+  }
+  for (const p of FX.parts) {
+    fctx.globalAlpha = Math.max(0, p.life / p.max); fctx.fillStyle = p.color;
+    fctx.beginPath(); fctx.arc(p.x, p.y, p.size, 0, TAU); fctx.fill();
+  }
+  fctx.globalAlpha = 1;
+  const R = FX.rocket;
+  if (R && R.t > 0 && R.x !== undefined) drawRocket(R.x, R.y, R.ang, 96);
+}
+
+/* ---------- 사다리 타기 ---------- */
+const lc = $('lCanvas'), lctx = lc.getContext('2d');
+const LW = 1400, LH = 540, ROWS = 14, LSPEED = 320;
+lc.width = LW * 2; lc.height = LH * 2;
+let LD = null, lRaf = null, lLast = 0;
+
+function lx(i) { return (i + 0.5) * LW / LD.N; }
+function ly(k) { return LH * (k + 1) / (ROWS + 1); }
+
+function startLadder(names) {
+  lCancel();
+  const N = names.length;
+  LD = { names, N, rungs: [], winCol: -1, phase: 'select', busy: false, over: false, trails: [], done: new Array(N).fill(false), pending: 0 };
+  for (let k = 0; k < ROWS; k++) {
+    const row = new Array(N - 1).fill(false);
+    for (let j = 0; j < N - 1; j++) if (!(j > 0 && row[j - 1]) && Math.random() < 0.5) row[j] = true;
+    LD.rungs.push(row);
+  }
+  // 팀 버튼
+  const bw = Math.min(Math.floor(LW / N) - 14, 200);
+  const fs = N <= 5 ? 28 : N <= 7 ? 24 : 20;
+  $('lTeams').innerHTML = ''; $('lPicks').innerHTML = '';
+  names.forEach((nm, i) => {
+    const b = document.createElement('button');
+    b.className = 'lteam'; b.disabled = true;
+    b.style.cssText = `left:${lx(i) - bw / 2}px;width:${bw}px;font-size:${fs}px;background:${COLORS[i % COLORS.length]}`;
+    b.innerHTML = `<span class="em"></span><span class="nm"></span><span class="tag"></span>`;
+    b.querySelector('.em').textContent = EMOJIS[i % EMOJIS.length];
+    b.querySelector('.nm').textContent = nm;
+    b.addEventListener('click', () => runOne(i));
+    $('lTeams').appendChild(b);
+    const p = document.createElement('button');
+    p.className = 'lpick'; p.textContent = '선택';
+    p.style.cssText = `left:${lx(i) - bw / 2}px;width:${bw}px`;
+    p.addEventListener('click', () => pickWin(i));
+    $('lPicks').appendChild(p);
+  });
+  $('lCover').classList.remove('lift');
+  $('lCoverMsg').textContent = '사다리의 일부가 가려져 있습니다'; $('lCoverMsg').className = '';
+  $('lStart').disabled = false; $('lStart').textContent = '시작'; $('lAll').disabled = false;
+  $('lpopup').classList.remove('show');
+  setHint(); drawLadder(); show('ladder');
+}
+function setHint() {
+  const h = { select: '① 맨 아래에서 당첨 위치를 하나 선택하세요', ready: '② 가운데 \'시작\' 버튼을 누르세요', started: '③ 위의 팀 이름을 눌러 사다리를 타세요', over: '당첨 팀이 결정되었습니다' };
+  $('lHint').textContent = h[LD.phase];
+}
+function pickWin(i) {
+  if (LD.phase !== 'select') return;
+  LD.winCol = i; LD.phase = 'ready';
+  [...$('lPicks').children].forEach((b, j) => {
+    b.disabled = true; b.classList.add(j === i ? 'win' : 'lose'); b.textContent = j === i ? '당첨' : '탈락';
+  });
+  setHint();
+}
+function warnNoPick() {
+  const m = $('lCoverMsg'); m.textContent = '맨 아래에서 당첨 위치를 먼저 선택해 주세요!';
+  m.className = ''; void m.offsetWidth; m.className = 'warn';
+}
+$('lStart').addEventListener('click', () => {
+  if (LD.winCol < 0) return warnNoPick();
+  if (LD.phase !== 'ready') return;
+  LD.phase = 'started';
+  $('lCoverMsg').className = ''; $('lCoverMsg').textContent = '위의 팀 이름을 눌러 사다리를 타세요';
+  $('lStart').disabled = true; $('lStart').textContent = '진행 중';
+  [...$('lTeams').children].forEach(b => b.disabled = false);
+  setHint();
+});
+$('lAll').addEventListener('click', () => {
+  if (LD.winCol < 0) return warnNoPick();
+  runAll();
+});
+
+function buildPath(c) {
+  const pts = [[lx(c), 0]];
+  for (let k = 0; k < ROWS; k++) {
+    const y = ly(k), r = LD.rungs[k];
+    if (c < LD.N - 1 && r[c]) { pts.push([lx(c), y]); c++; pts.push([lx(c), y]); }
+    else if (c > 0 && r[c - 1]) { pts.push([lx(c), y]); c--; pts.push([lx(c), y]); }
+  }
+  pts.push([lx(c), LH]);
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  return { pts, len, end: c };
+}
+function addTrail(t, mode) {
+  const p = buildPath(t);
+  LD.trails.push({ t, pts: p.pts, len: p.len, end: p.end, p: 0, done: false, mode, color: COLORS[t % COLORS.length] });
+}
+function liftCover() {
+  if (LD.phase === 'ready') LD.phase = 'started';
+  $('lCover').classList.add('lift');
+  [...$('lTeams').children].forEach((b, i) => { if (!LD.done[i]) b.disabled = true; });
+  $('lStart').disabled = true; $('lAll').disabled = true;
+}
+function launch() {
+  lLast = performance.now();
+  cancelAnimationFrame(lRaf);
+  lRaf = requestAnimationFrame(lTick);
+}
+function runOne(t) {
+  if (LD.busy || LD.over || LD.done[t] || LD.phase !== 'started') return;
+  LD.busy = true; liftCover();
+  setTimeout(() => { addTrail(t, 'one'); launch(); }, 650);
+}
+function runAll() {
+  if (LD.busy || LD.over) return;
+  LD.busy = true; liftCover();
+  const targets = LD.names.map((_, i) => i).filter(i => !LD.done[i]);
+  LD.pending = targets.length;
+  setTimeout(() => { targets.forEach(t => addTrail(t, 'all')); launch(); }, 650);
+}
+function lTick(ts) {
+  const dt = Math.min(0.05, (ts - lLast) / 1000); lLast = ts;
+  let active = false;
+  for (const tr of LD.trails) {
+    if (tr.done) continue;
+    tr.p += LSPEED * dt;
+    if (tr.p >= tr.len) { tr.p = tr.len; tr.done = true; drawLadder(); onTrailDone(tr); }
+    else active = true;
+  }
+  drawLadder();
+  if (active) lRaf = requestAnimationFrame(lTick);
+}
+function onTrailDone(tr) {
+  LD.done[tr.t] = true;
+  const win = tr.end === LD.winCol;
+  const b = $('lTeams').children[tr.t];
+  b.classList.add('done', win ? 'win' : 'lose'); b.disabled = false;
+  b.querySelector('.tag').textContent = win ? '🎉 당첨' : '탈락';
+  if (tr.mode === 'one') {
+    LD.busy = false;
+    if (win) { LD.over = true; LD.phase = 'over'; setHint(); showLResult(LD.names[tr.t], true, true); }
+    else {
+      showLResult(LD.names[tr.t], false, false);
+    }
+  } else {
+    LD.pending--;
+    if (LD.pending === 0) {
+      LD.busy = false; LD.over = true; LD.phase = 'over'; setHint();
+      const w = LD.trails.find(x => x.end === LD.winCol);
+      showLResult(LD.names[w.t], true, true, true);
+    }
+  }
+}
+function showLResult(name, win, final, all) {
+  $('lpLabel').textContent = final ? '🎉 당첨 🎉' : '결과';
+  $('lpName').textContent = name;
+  $('lpName').style.color = COLORS[LD.names.indexOf(name) % COLORS.length];
+  $('lpResult').textContent = all ? '' : (win ? '🎉 당첨!' : '탈락');
+  $('lpResult').style.color = win ? '#facc15' : '#94a3b8';
+  $('lOk').style.display = final ? 'none' : '';
+  $('lAgain').style.display = final ? '' : 'none';
+  $('lEnd').style.display = final ? '' : 'none';
+  $('lpopup').classList.add('show');
+}
+$('lOk').addEventListener('click', () => {
+  $('lpopup').classList.remove('show');
+  [...$('lTeams').children].forEach((b, i) => { b.disabled = LD.done[i]; });
+  if (LD.done.every(Boolean)) return;
+});
+$('lAgain').addEventListener('click', () => startLadder(LD.names));
+function lCancel() { cancelAnimationFrame(lRaf); lRaf = null; }
+function ladderExit() { lCancel(); $('lpopup').classList.remove('show'); backToSetup(); }
+$('lEnd').addEventListener('click', ladderExit);
+$('lBack').addEventListener('click', ladderExit);
+
+function drawLadder() {
+  if (!LD) return;
+  const c = lctx, N = LD.N;
+  c.setTransform(2, 0, 0, 2, 0, 0);
+  c.clearRect(0, 0, LW, LH);
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = '#94a3b8'; c.lineWidth = 6;
+  for (let i = 0; i < N; i++) { c.beginPath(); c.moveTo(lx(i), 0); c.lineTo(lx(i), LH); c.stroke(); }
+  for (let k = 0; k < ROWS; k++) for (let j = 0; j < N - 1; j++) if (LD.rungs[k][j]) {
+    c.beginPath(); c.moveTo(lx(j), ly(k)); c.lineTo(lx(j + 1), ly(k)); c.stroke();
+  }
+  // 이동 경로
+  c.lineWidth = 10;
+  for (const tr of LD.trails) {
+    c.strokeStyle = tr.color; c.beginPath(); c.moveTo(tr.pts[0][0], tr.pts[0][1]);
+    let rem = tr.p, hx = tr.pts[0][0], hy = tr.pts[0][1];
+    for (let i = 1; i < tr.pts.length && rem > 0; i++) {
+      const [x0, y0] = tr.pts[i - 1], [x1, y1] = tr.pts[i];
+      const d = Math.hypot(x1 - x0, y1 - y0), f = d === 0 ? 1 : Math.min(1, rem / d);
+      hx = x0 + (x1 - x0) * f; hy = y0 + (y1 - y0) * f;
+      c.lineTo(hx, hy); rem -= d;
+    }
+    c.stroke();
+    tr.hx = hx; tr.hy = hy;
+  }
+  // 이모지 (선 위에 표시)
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = '34px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  for (const tr of LD.trails) {
+    const x = tr.hx, y = Math.min(LH - 24, Math.max(24, tr.hy));
+    c.fillStyle = '#0f172a'; c.strokeStyle = tr.color; c.lineWidth = 5;
+    c.beginPath(); c.arc(x, y, 24, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.fillStyle = '#fff';
+    c.fillText(EMOJIS[tr.t % EMOJIS.length], x, y + 2);
+  }
+}
+</script>
+</body>
+</html>
